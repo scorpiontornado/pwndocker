@@ -1,11 +1,18 @@
 Pwndocker
 =========
-A docker environment for pwn in ctf based on **phusion/baseimage:jammy-1.0.4**, which is a modified ubuntu 22.04 baseimage for docker
+A docker environment for pwn in ctf based on **phusion/baseimage:noble-1.0.2**, which is a modified ubuntu 24.04 baseimage for docker
+
+WARNING: if you're going to expose this container to the internet, it might be wise to remove `/root/.ssh:/root/.ssh` from the volumes in `docker-compose.yml`.
+
+TODO:
+- Fix pwngdb overriding some pwndbg commands, e.g. `got`. See [here](https://github.com/scwuaptx/Pwngdb/tree/master/pwndbg).
+- Investigate glibc_builder for newer versions. "included glibc" section is now out of date, I believe glibc2.39 is the built-in version of ubuntu 24.04.
+- Add neovim-ppa/unstable, Go, NodeJS/npm/fnm, copilot-cli/gemini-cli, etc
 
 ### Usage
 
-	docker-compose up -d
-	docker exec -it pwn_test /bin/bash
+	docker compose up -d
+	docker exec -it pwn /bin/zsh
 
 
 ### included software

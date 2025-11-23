@@ -1,7 +1,8 @@
-version: '3'
+# version: '3'
 services:
     pwn:
-        container_name: pwn_test
+        # container_name: pwn_test
+        container_name: pwn
         image: skysider/pwndocker
         security_opt:
             - seccomp:unconfined
@@ -9,3 +10,6 @@ services:
             - SYS_PTRACE
         ports:
             - "23946:23946"
+        volumes:  # Added by Nick
+            - /ctf/work:/ctf/work
+            - /root/.ssh:/root/.ssh
