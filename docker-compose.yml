@@ -3,7 +3,9 @@ services:
     pwn:
         # container_name: pwn_test
         container_name: pwn
-        image: skysider/pwndocker
+        # image: skysider/pwndocker
+        build: .
+        image: pwndocker-noble
         security_opt:
             - seccomp:unconfined
         cap_add:
@@ -11,5 +13,6 @@ services:
         ports:
             - "23946:23946"
         volumes:  # Added by Nick
+            # Add a bind mount (host:container) to persist your files, e.g.:
             - /ctf/work:/ctf/work
             - /root/.ssh:/root/.ssh
