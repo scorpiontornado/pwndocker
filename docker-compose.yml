@@ -5,7 +5,7 @@ services:
         container_name: pwn
         # image: skysider/pwndocker
         build: .
-        image: pwndocker-noble
+        image: scorpiontornado/pwndocker:noble
         security_opt:
             - seccomp:unconfined
         cap_add:

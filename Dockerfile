@@ -2,7 +2,7 @@
 FROM phusion/baseimage:noble-1.0.2
 LABEL maintainer="skysider <skysider@163.com>"
 
-ENV DEBIAN_FRONTEND noninteractive
+ENV DEBIAN_FRONTEND=noninteractive
 
 ENV TZ=Australia/Sydney
 
@@ -87,63 +87,39 @@ RUN wget -q https://bootstrap.pypa.io/get-pip.py && \
         capstone \
         angr \
         pebble \
-        r2pipe
+        r2pipe \
+        pwntools
 
 RUN gem install elftools one_gadget seccomp-tools && rm -rf /var/lib/gems/*/cache/*
+
+RUN wget -q -O /usr/local/bin/pwninit \
+        https://github.com/io12/pwninit/releases/latest/download/pwninit && \
+    chmod +x /usr/local/bin/pwninit
 
 RUN git clone --depth 1 https://github.com/pwndbg/pwndbg && \
     cd pwndbg && chmod +x setup.sh && ./setup.sh
 
-RUN git clone --depth 1 https://github.com/scwuaptx/Pwngdb.git ~/Pwngdb && \
-    cd ~/Pwngdb && mv .gdbinit .gdbinit-pwngdb && \
-    sed -i "s?source ~/peda/peda.py?# source ~/peda/peda.py?g" .gdbinit-pwngdb && \
-    echo "source ~/Pwngdb/.gdbinit-pwngdb" >> ~/.gdbinit
+# [Nick] removed Pwngdb because it was overriding pwndbg's `got` command with an inferior version
+
+# RUN git clone --depth 1 https://github.com/scwuaptx/Pwngdb.git ~/Pwngdb && \
+#     cd ~/Pwngdb && mv .gdbinit .gdbinit-pwngdb && \
+#     sed -i "s?source ~/peda/peda.py?# source ~/peda/peda.py?g" .gdbinit-pwngdb && \
+#     echo "source ~/Pwngdb/.gdbinit-pwngdb" >> ~/.gdbinit
 
 RUN wget -O ~/.gdbinit-gef.py -q http://gef.blah.cat/py
 
-RUN git clone --depth 1 https://github.com/niklasb/libc-database.git libc-database && \
-    cd libc-database && ./get ubuntu debian || echo "/libc-database/" > ~/.libcdb_path && \
-    rm -rf /tmp/*
+# [Nick] cloned to /var/lib/libc-database, where pwntools looks for a local libc-database
+RUN git clone --depth 1 https://github.com/niklasb/libc-database.git /var/lib/libc-database && \
+    cd /var/lib/libc-database && ./get ubuntu debian && \
+    rm -rf /tmp/* /var/lib/libc-database/.git
 
 WORKDIR /ctf/work/
 
-COPY --from=skysider/glibc_builder64:2.19 /glibc/2.19/64 /glibc/2.19/64
-COPY --from=skysider/glibc_builder32:2.19 /glibc/2.19/32 /glibc/2.19/32
-
-COPY --from=skysider/glibc_builder64:2.23 /glibc/2.23/64 /glibc/2.23/64
-COPY --from=skysider/glibc_builder32:2.23 /glibc/2.23/32 /glibc/2.23/32
-
-COPY --from=skysider/glibc_builder64:2.24 /glibc/2.24/64 /glibc/2.24/64
-COPY --from=skysider/glibc_builder32:2.24 /glibc/2.24/32 /glibc/2.24/32
-
-COPY --from=skysider/glibc_builder64:2.27 /glibc/2.27/64 /glibc/2.27/64
-COPY --from=skysider/glibc_builder32:2.27 /glibc/2.27/32 /glibc/2.27/32
-
-COPY --from=skysider/glibc_builder64:2.28 /glibc/2.28/64 /glibc/2.28/64
-COPY --from=skysider/glibc_builder32:2.28 /glibc/2.28/32 /glibc/2.28/32
-
-COPY --from=skysider/glibc_builder64:2.29 /glibc/2.29/64 /glibc/2.29/64
-COPY --from=skysider/glibc_builder32:2.29 /glibc/2.29/32 /glibc/2.29/32
-
-COPY --from=skysider/glibc_builder64:2.30 /glibc/2.30/64 /glibc/2.30/64
-COPY --from=skysider/glibc_builder32:2.30 /glibc/2.30/32 /glibc/2.30/32
-
-COPY --from=skysider/glibc_builder64:2.33 /glibc/2.33/64 /glibc/2.33/64
-COPY --from=skysider/glibc_builder32:2.33 /glibc/2.33/32 /glibc/2.33/32
-
-COPY --from=skysider/glibc_builder64:2.34 /glibc/2.34/64 /glibc/2.34/64
-COPY --from=skysider/glibc_builder32:2.34 /glibc/2.34/32 /glibc/2.34/32
-
-COPY --from=skysider/glibc_builder64:2.35 /glibc/2.35/64 /glibc/2.35/64
-COPY --from=skysider/glibc_builder32:2.35 /glibc/2.35/32 /glibc/2.35/32
-
-COPY --from=skysider/glibc_builder64:2.36 /glibc/2.36/64 /glibc/2.36/64
-COPY --from=skysider/glibc_builder32:2.36 /glibc/2.36/32 /glibc/2.36/32
+# [Nick] removed the skysider/glibc_builder copies (2.19-2.36, none as new as noble's 2.39).
+# Use pwninit, or ./download in /var/lib/libc-database, to get a matching libc and ld.
 
 COPY linux_server linux_server64  /ctf/
 
 RUN chmod a+x /ctf/linux_server /ctf/linux_server64
-
-RUN python3 -m pip install --no-cache-dir --break-system-packages pwntools
 
 CMD ["/sbin/my_init"]

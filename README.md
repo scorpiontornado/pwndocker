@@ -5,23 +5,25 @@ A docker environment for pwn in ctf based on **phusion/baseimage:noble-1.0.2**, 
 WARNING: if you're going to expose this container to the internet, it might be wise to remove `/root/.ssh:/root/.ssh` from the volumes in `docker-compose.yml`.
 
 TODO:
-- Fix pwngdb overriding some pwndbg commands, e.g. `got`. See [here](https://github.com/scwuaptx/Pwngdb/tree/master/pwndbg).
-- Investigate glibc_builder for newer versions. "included glibc" section is now out of date, I believe glibc2.39 is the built-in version of ubuntu 24.04.
 - Add neovim-ppa/unstable, Go, NodeJS/npm/fnm, copilot-cli/gemini-cli, etc
 
 ### Usage
 
+	docker compose pull
 	docker compose up -d
 	docker exec -it pwn /bin/zsh
+
+`docker compose pull` downloads the prebuilt image `scorpiontornado/pwndocker:noble` (glibc 2.39).
+To build it yourself from the Dockerfile instead, run `docker compose up -d --build`.
 
 
 ### included software
 
 - [pwntools](https://github.com/Gallopsled/pwntools)  —— CTF framework and exploit development library
 - [pwndbg](https://github.com/pwndbg/pwndbg)  —— a GDB plug-in that makes debugging with GDB suck less, with a focus on features needed by low-level software developers, hardware hackers, reverse-engineers and exploit developers
-- [pwngdb](https://github.com/scwuaptx/Pwngdb) —— gdb for pwn
+- [pwninit](https://github.com/io12/pwninit) -- patch a binary to run with a given libc and matching ld
+- [libc-database](https://github.com/niklasb/libc-database) -- every Ubuntu and Debian libc, in `/var/lib/libc-database`
 - [ROPgadget](https://github.com/JonathanSalwan/ROPgadget)  —— facilitate ROP exploitation tool
-- [roputils](https://github.com/inaz2/roputils) 	—— A Return-oriented Programming toolkit
 - [one_gadget](https://github.com/david942j/one_gadget) —— A searching one-gadget of execve('/bin/sh', NULL, NULL) tool for amd64 and i386
 - [angr](https://github.com/angr/angr)   ——  A platform-agnostic binary analysis framework
 - [radare2](https://github.com/radare/radare2) ——  A rewrite from scratch of radare in order to provide a set of libraries and tools to work with binary files
@@ -33,23 +35,29 @@ TODO:
 
 ### included glibc
 
-Default compiled glibc path is `/glibc`.
-
-- 2.19  —— ubuntu 12.04 default libc version
-- 2.23  —— ubuntu 16.04 default libc version
-- 2.24  —— introduce vtable check in file struct
-- 2.27  —— ubuntu 18.04 default glibc version
-- 2.31  —— ubuntu 20.04 default glibc version(built-in)
-- 2.28~2.30,2.33~2.36  —— latest libc versions
+The system glibc is 2.39 (Ubuntu 24.04).
+For other versions, use the libc from the challenge with `pwninit`, or look it up in `/var/lib/libc-database`.
 
 ### Q&A
 
 #### How to run in custom libc version?
 
+Put the challenge binary and its `libc.so.6` in the same folder, then run:
+
 ```shell
-cp /glibc/2.27/64/lib/ld-2.27.so /tmp/ld-2.27.so
-patchelf --set-interpreter /tmp/ld-2.27.so ./test
-LD_PRELOAD=./libc.so.6 ./test
+pwninit --bin ./test
+```
+
+This downloads the matching ld and writes `test_patched`, which runs with that libc.
+
+To do it by hand, get the matching ld from libc-database:
+
+```shell
+cd /var/lib/libc-database
+./identify /path/to/libc.so.6   # prints the libc id
+./download <libc id>            # downloads ld.so and other libs to libs/<libc id>
+ls libs/<libc id>                # find the ld file, e.g. ld-linux-x86-64.so.2
+patchelf --set-interpreter /var/lib/libc-database/libs/<libc id>/<ld file> ./test
 ```
 
 or
@@ -60,44 +68,13 @@ p = process(["/path/to/ld.so", "./test"], env={"LD_PRELOAD":"/path/to/libc.so.6"
 
 ```
 
-#### How to run in custom libc version with other lib?
-if you want to run binary with glibc version 2.28:
-
-```shell
-root@pwn:/ctf/work# ldd /bin/ls
-linux-vdso.so.1 (0x00007ffe065d3000)
-libselinux.so.1 => /lib/x86_64-linux-gnu/libselinux.so.1 (0x00007f004089e000)
-libc.so.6 => /lib/x86_64-linux-gnu/libc.so.6 (0x00007f00406ac000)
-libpcre2-8.so.0 => /lib/x86_64-linux-gnu/libpcre2-8.so.0 (0x00007f004061c000)
-libdl.so.2 => /lib/x86_64-linux-gnu/libdl.so.2 (0x00007f0040616000)
-/lib64/ld-linux-x86-64.so.2 (0x00007f00408f8000)
-
-root@pwn:/ctf/work# /glibc/2.28/64/ld-2.28.so /bin/ls
-/bin/ls: error while loading shared libraries: libselinux.so.1: cannot open shared object file: No such file or directory
-```
-You can copy /lib/x86_64-linux-gnu/libselinux.so.1 and /lib/x86_64-linux-gnu/libpcre2-8.so.0 to /glibc/2.28/64/lib/, and sometimes it fails because the built-in libselinux.so.1 requires higher version libc:
-
-```
-root@pwn:/ctf/work# /glibc/2.28/64/ld-2.28.so /bin/ls
-/bin/ls: /glibc/2.28/64/lib/libc.so.6: version `GLIBC_2.30' not found (required by /glibc/2.28/64/lib/libselinux.so.1)
-```
-
-it can be solved by copying libselinux.so.1 from ubuntu 18.04 which glibc version is 2.27 to /glibc/2.28/64/lib:
-```
-docker run -itd --name u18 ubuntu:18.04 /bin/bash
-docker cp -L u18:/lib/x86_64-linux-gnu/libselinux.so.1 .
-docker cp -L u18:/lib/x86_64-linux-gnu/libpcre2-8.so.0 .
-docker cp libselinux.so.1 pwn:/glibc/2.28/64/lib/
-docker cp libpcre2-8.so.0 pwn:/glibc/2.28/64/lib/
-```
-
-And now it succeeds:
-
-```
-root@pwn:/ctf/work# /glibc/2.28/64/ld-2.28.so /bin/ls -l /
-```
-
 ### ChangeLog
+
+#### 2026-11-11
+publish `scorpiontornado/pwndocker:noble` to Docker Hub, remove Pwngdb (it overrode pwndbg's `got`), move libc-database to `/var/lib/libc-database`, add pwninit, remove the glibc_builder copies
+
+#### 2025-10-12
+update base image to ubuntu 24.04 (noble, glibc 2.39)
 
 #### 2025-09-14
 update base image to ubuntu 22.04 and update `pwntools` version to 4.14.1
