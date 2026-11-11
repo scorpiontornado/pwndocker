@@ -2,19 +2,45 @@ Pwndocker
 =========
 A docker environment for pwn in ctf based on **phusion/baseimage:noble-1.0.2**, which is a modified ubuntu 24.04 baseimage for docker
 
-WARNING: if you're going to expose this container to the internet, it might be wise to remove `/root/.ssh:/root/.ssh` from the volumes in `docker-compose.yml`.
+The `work` folder next to `docker-compose.yml` is mounted at `/ctf/work` in the container, so put your challenge files there.
+Files elsewhere in the container are lost when it is recreated.
 
 TODO:
-- Add neovim-ppa/unstable, Go, NodeJS/npm/fnm, copilot-cli/gemini-cli, etc
+- Add neovim-ppa/unstable, Go, NodeJS/npm/fnm, etc
 
 ### Usage
 
+	git clone https://github.com/scorpiontornado/pwndocker.git
+	cd pwndocker
 	docker compose pull
 	docker compose up -d
 	docker exec -it pwn /bin/zsh
 
 `docker compose pull` downloads the prebuilt image `scorpiontornado/pwndocker:noble` (glibc 2.39).
+Run it again, followed by `docker compose up -d`, whenever the image is updated.
 To build it yourself from the Dockerfile instead, run `docker compose up -d --build`.
+
+To enter the container again later, run `docker compose up -d` and `docker exec -it pwn /bin/zsh` from the `pwndocker` folder.
+
+### Switching from skysider/pwndocker
+
+Removing a container deletes any files you saved inside it.
+Copy them out first if you need them (this example copies the old container's `/ctf/work` to `./old-work`):
+
+	docker cp pwn:/ctf/work ./old-work
+
+List your containers, and remove each one using `skysider/pwndocker` or `pwndocker-noble`, e.g. `pwn`:
+
+	docker ps -a
+	docker rm -f pwn
+
+Then delete the old images to free disk space.
+An error saying "No such image" just means you never had that one.
+
+	docker image rm skysider/pwndocker pwndocker-noble
+	docker image prune
+
+`docker system df` shows how much space Docker is using.
 
 
 ### included software
@@ -23,6 +49,7 @@ To build it yourself from the Dockerfile instead, run `docker compose up -d --bu
 - [pwndbg](https://github.com/pwndbg/pwndbg)  —— a GDB plug-in that makes debugging with GDB suck less, with a focus on features needed by low-level software developers, hardware hackers, reverse-engineers and exploit developers
 - [pwninit](https://github.com/io12/pwninit) -- patch a binary to run with a given libc and matching ld
 - [libc-database](https://github.com/niklasb/libc-database) -- every Ubuntu and Debian libc, in `/var/lib/libc-database`
+- [ropper](https://github.com/sashs/Ropper) -- find gadgets to build rop chains for different architectures
 - [ROPgadget](https://github.com/JonathanSalwan/ROPgadget)  —— facilitate ROP exploitation tool
 - [one_gadget](https://github.com/david942j/one_gadget) —— A searching one-gadget of execve('/bin/sh', NULL, NULL) tool for amd64 and i386
 - [angr](https://github.com/angr/angr)   ——  A platform-agnostic binary analysis framework
@@ -35,7 +62,12 @@ To build it yourself from the Dockerfile instead, run `docker compose up -d --bu
 
 ### included glibc
 
-The system glibc is 2.39 (Ubuntu 24.04).
+The system glibc is 2.39 (Ubuntu 24.04):
+
+- 64-bit libc: `/lib/x86_64-linux-gnu/libc.so.6`
+- 64-bit ld: `/lib64/ld-linux-x86-64.so.2`
+- 32-bit libc: `/lib/i386-linux-gnu/libc.so.6`
+
 For other versions, use the libc from the challenge with `pwninit`, or look it up in `/var/lib/libc-database`.
 
 ### Q&A

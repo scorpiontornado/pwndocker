@@ -12,7 +12,7 @@ services:
             - SYS_PTRACE
         ports:
             - "23946:23946"
-        volumes:  # Added by Nick
-            # Add a bind mount (host:container) to persist your files, e.g.:
-            - /ctf/work:/ctf/work
-            - /root/.ssh:/root/.ssh
+        # [Nick] files in ./work (next to this file) appear in /ctf/work in the container.
+        # Put per-machine mounts in docker-compose.override.yml, which compose loads automatically.
+        volumes:
+            - ./work:/ctf/work
